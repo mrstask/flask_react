@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Grid</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.20/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const StreamingGrid = () => {
+            const [items, setItems] = React.useState(Array(9).fill(null));
+            const [error, setError] = React.useState(null);
+
+            React.useEffect(() => {
+                const ws = new WebSocket('ws://127.0.0.1:5000/ws');
+
+                ws.onopen = () => setError(null);
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.items && Array.isArray(data.items)) {
+                            setItems(data.items.slice(0, 9));
+                        }
+                    } catch (err) {
+                        console.error('Error parsing message:', err);
+                    }
+                };
+
+                ws.onerror = () => setError('Failed to connect to server');
+                ws.onclose = () => setError('Connection closed');
+
+                return () => ws.close();
+            }, []);
+
+            const getBackgroundColor = (type) => ({
+                'type1': 'bg-blue-500',
+                'type2': 'bg-green-500',
+                'type3': 'bg-yellow-500',
+                'default': 'bg-gray-200'
+            }[type] || 'bg-gray-200');
+
+            return (
+                <div className="p-4 max-w-4xl mx-auto">
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-4">
+                        {items.map((item, index) => (
+                            <div
+                                key={index}
+                                className={`p-4 rounded-lg shadow-md ${
+                                    item ? getBackgroundColor(item.type) : 'bg-gray-200'
+                                } min-h-32 flex items-center justify-center text-white transition-colors duration-200`}
+                            >
+                                {item ? (
+                                    <div className="text-center">
+                                        <div className="font-bold">{item.name}</div>
+                                        <div>{item.value}</div>
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-500">Waiting for data...</div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<StreamingGrid />);
+    </script>
+</body>
+</html>
